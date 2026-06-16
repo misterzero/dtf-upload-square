@@ -1,0 +1,32 @@
+# Copy this to .dev.vars and fill in your real values.
+# .dev.vars is gitignored — never commit it.
+
+# Cloudflare R2 (used for presigned upload URLs)
+R2_ACCOUNT_ID=your-cloudflare-account-id
+R2_BUCKET=rio-gangsheets
+R2_ACCESS_KEY_ID=your-r2-access-key-id
+R2_SECRET_ACCESS_KEY=your-r2-secret-access-key
+
+# Square — use Sandbox values here
+SQUARE_APP_ID=sandbox-sq0idb-...
+SQUARE_LOCATION_ID=your-sandbox-location-id
+SQUARE_ACCESS_TOKEN=EAAAl...sandbox-token...
+SQUARE_ENV=sandbox
+
+# Max gang sheets a customer can include in a single order (default: 5)
+MAX_GANGSHEETS_PER_ORDER=3
+
+# Cloudflare Turnstile — use these test keys locally (always pass, no account needed).
+# Replace with real keys from dash.cloudflare.com -> Turnstile before deploying.
+TURNSTILE_SITE_KEY=1x00000000000000000000AA
+TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
+
+# Resend (optional locally — omit to skip email during dev)
+RESEND_API_KEY=re_...
+FROM_EMAIL=noreply@rioscreations.com
+OWNER_EMAIL=mario@rioscreations.com
+
+# Note: the BUCKET R2 binding (used to verify uploads before charging) is a
+# Cloudflare binding, not an env var. In local dev it's absent, so the
+# pre-charge file-check is skipped — uploads still go to real R2 via the
+# presigned URL, they just aren't re-verified server-side before payment.
