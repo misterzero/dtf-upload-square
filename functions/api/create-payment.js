@@ -5,7 +5,8 @@
 // 3. Charges the card against that order
 // 4. Sends notification emails via Resend with presigned download links (fire-and-forget)
 
-import { getPrice, CURRENCY } from "../../lib/prices.js";
+import { CURRENCY } from "../../lib/prices.js";
+import { fetchPrices } from "../../lib/catalog.js";
 import { presign } from "../../lib/sigv4.js";
 
 // Confirm/raise against Square's changelog: https://developer.squareup.com/docs/changelog/connect
@@ -132,10 +133,11 @@ export async function onRequestPost({ request, env, waitUntil }) {
     if (!td.success) return bad("Security check failed. Please refresh and try again.", 403);
   }
 
-  // Validate every cart item against the server-side price table.
+  // Validate every cart item against the live Square catalog prices.
+  const prices = await fetchPrices(env);
   const enrichedItems = [];
   for (const item of cartItems) {
-    const price = getPrice(item.variationId);
+    const price = prices.find((p) => p.variationId === item.variationId);
     if (!price) return bad("Unknown sheet size in cart.");
     if (!item.objectKey) return bad("Missing file for one of your transfers.");
     const qty = Math.max(1, Math.min(99, parseInt(item.qty, 10) || 1));
@@ -176,7 +178,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
       order: {
         location_id: env.SQUARE_LOCATION_ID,
         line_items: enrichedItems.map((item) => ({
-          name: item.label,
+          catalog_object_id: item.variationId,
           quantity: String(item.qty),
           base_price_money: { amount: item.priceCents, currency: CURRENCY },
           note: [item.description, `File: ${item.objectKey}`]
