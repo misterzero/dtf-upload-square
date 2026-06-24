@@ -14,7 +14,7 @@
     --paper: #f6f4ee;
     --card: #ffffff;
     --line: #e4e0d6;
-    --accent: #e2483d;      /* registration red */
+    --accent: #e2483d;
     --accent-press: #c43a30;
     --ok: #1f8a55;
     --muted: #8c8678;
@@ -27,9 +27,7 @@
     margin: 0;
     font-family: Inter, system-ui, sans-serif;
     color: var(--ink);
-    background:
-      radial-gradient(circle at 12% -10%, #fff 0, transparent 40%),
-      var(--paper);
+    background: radial-gradient(circle at 12% -10%, #fff 0, transparent 40%), var(--paper);
     line-height: 1.5;
   }
   .wrap { max-width: var(--maxw); margin: 0 auto; padding: 28px 20px 64px; }
@@ -72,7 +70,6 @@
   }
   .field + .field { margin-top: 14px; }
 
-  /* Sheet proportion preview — the signature element */
   .preview {
     display: flex; align-items: flex-end; justify-content: center; gap: 14px;
     padding: 18px 0 6px;
@@ -93,7 +90,7 @@
   .dropzone {
     border: 1.5px dashed var(--line); border-radius: 12px; background: #fbfaf6;
     padding: 26px 16px; text-align: center; cursor: pointer;
-    transition: border-color .15s, background .15s;
+    transition: border-color .15s, background .15s; margin-top: 14px;
   }
   .dropzone.drag { border-color: var(--accent); background: #fdf3f2; }
   .dropzone .big { font-weight: 600; }
@@ -110,6 +107,29 @@
   .filemeta button { background: none; border: none; color: var(--accent); font: inherit; cursor: pointer; padding: 0; text-decoration: underline; }
 
   .spec { font-size: 12.5px; color: var(--muted); margin: 10px 2px 0; }
+
+  .add-btn {
+    width: 100%; padding: 13px; margin-top: 16px;
+    border: 2px dashed var(--line); border-radius: 12px;
+    background: transparent; color: var(--muted);
+    font: 600 15px "Space Grotesk", sans-serif;
+    cursor: not-allowed; transition: border-color .15s, color .15s, background .15s;
+  }
+  .add-btn.ready {
+    border-style: solid; border-color: var(--accent); color: var(--accent);
+    background: #fdf3f2; cursor: pointer;
+  }
+  .add-btn.ready:hover { background: #fbe6e4; }
+
+  .cart-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .cart-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px;
+    background: #fbfaf6; border: 1px solid var(--line); border-radius: 10px; font-size: 14px; }
+  .ci-body { flex: 1; }
+  .ci-name { font-weight: 600; }
+  .ci-desc { color: var(--ink-soft); margin-top: 2px; }
+  .ci-file { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .ci-remove { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 18px; line-height: 1; padding: 0 2px; flex-shrink: 0; }
+  .ci-remove:hover { color: var(--accent); }
 
   #card-container { margin-top: 4px; min-height: 52px; }
 
@@ -140,22 +160,6 @@
   .success a { color: var(--accent); font-weight: 600; }
   .hidden { display: none; }
 
-  .file-list { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-  .file-item { display: flex; align-items: center; gap: 8px; font-size: 14px; padding: 9px 12px;
-    background: #fbfaf6; border: 1px solid var(--line); border-radius: 10px; }
-  .file-item.done { border-color: var(--ok); background: #f1f8f3; }
-  .file-item.error { border-color: var(--accent); background: #fdf3f2; }
-  .fi-icon { font-weight: 700; min-width: 14px; }
-  .fi-icon.ok { color: var(--ok); }
-  .fi-icon.err { color: var(--accent); }
-  .fi-name { flex: 1; }
-  .fi-size { color: var(--muted); }
-  .fi-err { color: var(--accent); font-size: 12px; }
-  .fi-bar-wrap { flex: 1; height: 6px; background: var(--line); border-radius: 999px; overflow: hidden; }
-  .fi-bar { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
-  .fi-remove { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 18px; line-height: 1; padding: 0 2px; }
-  .fi-remove:hover { color: var(--accent); }
-
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
@@ -163,43 +167,57 @@
 <div class="wrap">
   <header>
     <div class="eyebrow">Rio's Custom Creations</div>
-    <h1>Print-ready gang sheets, on film.</h1>
-    <p class="lede">Upload your finished sheet, pick a size, and pay. We print it as a direct-to-film transfer and let you know when it's ready.</p>
+    <h1>Print-ready DTF transfers.</h1>
+    <p class="lede">Configure each transfer, upload your artwork, and add it to your cart. Pay once for the whole order.</p>
   </header>
 
   <main id="order">
-    <!-- Step 1: size -->
+    <!-- Step 1: Configure a transfer -->
     <section class="card">
-      <p class="step"><b>01</b> Choose your sheet</p>
+      <p class="step"><b>01</b> Configure a transfer</p>
       <div class="field">
         <label for="size">Sheet size</label>
         <select id="size"></select>
       </div>
-      <div class="field">
-        <label for="qty">Quantity</label>
-        <input id="qty" type="number" min="1" max="99" value="1" inputmode="numeric" />
+      <div class="row" style="margin-top:14px">
+        <div class="field">
+          <label for="qty">Quantity</label>
+          <input id="qty" type="number" min="1" max="99" value="1" inputmode="numeric" />
+        </div>
       </div>
       <div class="preview">
         <div class="sheet" id="sheet"></div>
         <span class="dims" id="dims"></span>
       </div>
-    </section>
-
-    <!-- Step 2: upload -->
-    <section class="card">
-      <p class="step"><b>02</b> Upload your artwork</p>
-      <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Choose PNG files to upload">
+      <div class="field" style="margin-top:6px">
+        <label for="desc">Description <span style="color:var(--muted);font-weight:400;font-size:13px">(optional)</span></label>
+        <input id="desc" type="text" placeholder="e.g. Front graphic — 12 blue shirts" autocomplete="off" />
+      </div>
+      <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Choose a PNG file to upload">
         <div class="big">Drop your PNG here, or tap to browse</div>
         <div class="small">PNG with a transparent background · 22&quot; wide · 300 DPI</div>
       </div>
-      <input id="file" type="file" accept="image/png" multiple class="hidden" />
-      <ul class="file-list" id="file-list"></ul>
-      <p class="spec">Files are sent straight to our print queue. Use the artwork exactly as you want it printed — we don't resize or rearrange it.</p>
+      <input id="file" type="file" accept="image/png" class="hidden" />
+      <div class="progress" id="progress"><div class="bar" id="bar"></div></div>
+      <div class="filemeta" id="filemeta">
+        <span class="check">✓</span>
+        <span id="filename"></span>
+        <button type="button" id="replace">Replace</button>
+      </div>
+      <p class="spec">Files go straight to our print queue — we print exactly what you upload, no resizing.</p>
+      <button class="add-btn" id="add-btn">Upload a file to add to cart</button>
+      <p class="hint" id="add-hint"></p>
     </section>
 
-    <!-- Step 3: pay -->
+    <!-- Cart (hidden until first item is added) -->
+    <section class="card hidden" id="cart-card">
+      <p class="step">Cart</p>
+      <ul class="cart-list" id="cart-list"></ul>
+    </section>
+
+    <!-- Step 2: Payment -->
     <section class="card">
-      <p class="step"><b>03</b> Your details &amp; payment</p>
+      <p class="step"><b>02</b> Your details &amp; payment</p>
       <div class="field">
         <label for="name">Name</label>
         <input id="name" type="text" autocomplete="name" />
@@ -221,7 +239,7 @@
         <span class="lbl">Total</span>
         <span class="amt" id="total">$0.00</span>
       </div>
-      <button class="pay" id="pay" disabled>Upload a file to continue</button>
+      <button class="pay" id="pay" disabled>Add a transfer to continue</button>
       <p class="hint" id="hint"></p>
     </section>
   </main>
@@ -229,44 +247,178 @@
   <section id="done" class="card success hidden">
     <div class="mark">✓</div>
     <h2>Order received</h2>
-    <p>Thanks! We've got your sheet and your payment. We'll email you when it's printed.</p>
+    <p>Thanks! We've got your transfers and payment. We'll email you when they're printed.</p>
     <p id="receipt"></p>
   </section>
 </div>
 
 <script>
 const $ = (id) => document.getElementById(id);
-const state = { cfg: null, files: [], paying: false, cardReady: false, turnstileToken: null };
+const state = {
+  cfg: null,
+  cart: [],          // [{variationId, label, priceCents, qty, description, objectKey, filename}]
+  currentFile: null, // {key, filename} once upload completes
+  uploading: false,
+  paying: false,
+  cardReady: false,
+  turnstileToken: null,
+};
 
 const money = (cents) => "$" + (cents / 100).toFixed(2);
-const escHtml = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const escHtml = (s) => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 
-function selected() { return state.cfg.prices.find((p) => p.key === $("size").value); }
+function selected() { return state.cfg.prices.find((p) => p.variationId === $("size").value); }
 function qty() { return Math.max(1, Math.min(99, parseInt($("qty").value, 10) || 1)); }
+function cartTotal() { return state.cart.reduce((sum, i) => sum + i.priceCents * i.qty, 0); }
 
-function refreshTotal() {
+function refreshPreview() {
   const p = selected();
   if (!p) return;
-  $("total").textContent = money(p.priceCents * qty());
   $("dims").textContent = p.label;
   $("sheet").style.height = Math.round(46 + (p.lengthIn / 120) * 150) + "px";
 }
 
-function anyUploading() { return state.files.some(f => f.status === "uploading"); }
-function allDone() { return state.files.length > 0 && state.files.every(f => f.status === "done"); }
+// ---- Cart ----
+function renderCart() {
+  const section = $("cart-card");
+  if (state.cart.length === 0) { section.classList.add("hidden"); return; }
+  section.classList.remove("hidden");
+  $("cart-list").innerHTML = state.cart.map((item, i) => `
+    <li class="cart-item">
+      <div class="ci-body">
+        <div class="ci-name">${escHtml(item.label)} &times;${item.qty} &mdash; ${money(item.priceCents * item.qty)}</div>
+        ${item.description ? `<div class="ci-desc">${escHtml(item.description)}</div>` : ""}
+        <div class="ci-file">${escHtml(item.filename)}</div>
+      </div>
+      <button class="ci-remove" data-idx="${i}" aria-label="Remove">&times;</button>
+    </li>`).join("");
+  $("cart-list").querySelectorAll(".ci-remove").forEach((btn) =>
+    btn.addEventListener("click", () => removeFromCart(parseInt(btn.dataset.idx, 10)))
+  );
+}
 
+function removeFromCart(idx) {
+  state.cart.splice(idx, 1);
+  renderCart();
+  refreshPay();
+}
+
+// ---- Add to cart ----
+function canAddToCart() { return !!state.currentFile && !state.uploading; }
+
+function refreshAddBtn() {
+  const btn = $("add-btn");
+  const ok = canAddToCart();
+  btn.classList.toggle("ready", ok);
+  btn.textContent = state.uploading
+    ? "Uploading…"
+    : !state.currentFile
+      ? "Upload a file to add to cart"
+      : "Add to cart — " + money(selected().priceCents * qty());
+}
+
+function setAddHint(msg, isErr) {
+  const h = $("add-hint"); h.textContent = msg || ""; h.classList.toggle("err", !!isErr);
+}
+
+function addToCart() {
+  if (!canAddToCart()) return;
+  const p = selected();
+  state.cart.push({
+    variationId: p.variationId,
+    label: p.label,
+    priceCents: p.priceCents,
+    qty: qty(),
+    description: $("desc").value.trim(),
+    objectKey: state.currentFile.key,
+    filename: state.currentFile.filename,
+  });
+  // Reset form for next transfer
+  state.currentFile = null;
+  $("file").value = "";
+  $("desc").value = "";
+  $("size").selectedIndex = 0;
+  $("qty").value = "1";
+  $("filemeta").classList.remove("show");
+  $("progress").classList.remove("show");
+  $("dropzone").classList.remove("has-file");
+  $("dropzone").querySelector(".big").textContent = "Drop your PNG here, or tap to browse";
+  refreshPreview();
+  renderCart();
+  refreshAddBtn();
+  refreshPay();
+  setAddHint("Added! Configure another transfer, or scroll down to pay.");
+}
+
+// ---- Upload ----
+function handleFile(file) {
+  if (!file) return;
+  if (file.type !== "image/png") return setAddHint("Only PNG files are accepted.", true);
+  if (file.size > state.cfg.maxUploadBytes) return setAddHint("That file is too large. Max " + Math.round(state.cfg.maxUploadBytes / 1048576) + " MB.", true);
+  setAddHint("");
+  uploadFile(file);
+}
+
+async function uploadFile(file) {
+  state.uploading = true; state.currentFile = null; refreshAddBtn();
+  $("filemeta").classList.remove("show");
+  $("progress").classList.add("show"); $("bar").style.width = "0%";
+
+  let url, key;
+  try {
+    const r = await fetch("/api/upload-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename: file.name, contentType: file.type, size: file.size }),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || "Couldn't start the upload.");
+    url = j.url; key = j.key;
+  } catch (e) {
+    state.uploading = false; $("progress").classList.remove("show"); refreshAddBtn();
+    return setAddHint(e.message, true);
+  }
+
+  const xhr = new XMLHttpRequest();
+  xhr.open("PUT", url);
+  xhr.upload.onprogress = (ev) => {
+    if (ev.lengthComputable) $("bar").style.width = Math.round((ev.loaded / ev.total) * 100) + "%";
+  };
+  xhr.onload = () => {
+    state.uploading = false; $("progress").classList.remove("show");
+    if (xhr.status >= 200 && xhr.status < 300) {
+      state.currentFile = { key, filename: file.name };
+      $("filename").textContent = file.name + " (" + (file.size / 1048576).toFixed(1) + " MB)";
+      $("dropzone").classList.add("has-file");
+      $("dropzone").querySelector(".big").textContent = "File ready";
+      $("filemeta").classList.add("show");
+      setAddHint("");
+    } else {
+      setAddHint("The upload failed (" + xhr.status + "). Please try again.", true);
+    }
+    refreshAddBtn();
+  };
+  xhr.onerror = () => {
+    state.uploading = false; $("progress").classList.remove("show");
+    setAddHint("Upload failed — check your connection.", true); refreshAddBtn();
+  };
+  xhr.send(file);
+}
+
+// ---- Payment ----
 function canPay() {
-  return allDone() && !state.paying && state.cardReady &&
+  return state.cart.length > 0 && !state.paying && state.cardReady &&
     $("name").value.trim() && /\S+@\S+\.\S+/.test($("email").value) &&
     (!state.cfg.turnstileSiteKey || state.turnstileToken);
 }
+
 function refreshPay() {
   const btn = $("pay");
-  if (anyUploading()) { btn.disabled = true; btn.textContent = "Uploading…"; return; }
-  if (!allDone()) { btn.disabled = true; btn.textContent = "Upload a file to continue"; return; }
+  $("total").textContent = money(cartTotal());
+  if (!state.cart.length) { btn.disabled = true; btn.textContent = "Add a transfer to continue"; return; }
   const ok = canPay();
   btn.disabled = !ok;
-  if (ok) { btn.textContent = "Pay " + money(selected().priceCents * qty()); return; }
+  if (ok) { btn.textContent = "Pay " + money(cartTotal()); return; }
   if (!$("name").value.trim() || !/\S+@\S+\.\S+/.test($("email").value)) { btn.textContent = "Add your name and email"; return; }
   if (!state.cardReady) { btn.textContent = "Enter your card details"; return; }
   if (state.cfg.turnstileSiteKey && !state.turnstileToken) { btn.textContent = "Complete the security check"; return; }
@@ -277,120 +429,41 @@ function setHint(msg, isErr) {
   const h = $("hint"); h.textContent = msg || ""; h.classList.toggle("err", !!isErr);
 }
 
-// ---- File list ----
-function renderFileList() {
-  const list = $("file-list");
-  const dz = $("dropzone");
-  const atMax = state.files.length >= state.cfg.maxGangsheetsPerOrder;
-
-  list.innerHTML = state.files.map((f, i) => `
-    <li class="file-item ${f.status}">
-      <span class="fi-icon ${f.status === "done" ? "ok" : f.status === "error" ? "err" : ""}">
-        ${f.status === "done" ? "✓" : f.status === "error" ? "✕" : ""}
-      </span>
-      <span class="fi-name">${escHtml(f.name)} <span class="fi-size">(${(f.size / 1048576).toFixed(1)} MB)</span></span>
-      ${f.status === "uploading" ? `<div class="fi-bar-wrap"><div class="fi-bar" style="width:${f.progress}%"></div></div>` : ""}
-      ${f.status === "error" ? `<span class="fi-err">${escHtml(f.error)}</span>` : ""}
-      <button class="fi-remove" data-idx="${i}" aria-label="Remove">×</button>
-    </li>`).join("");
-
-  list.querySelectorAll(".fi-remove").forEach(btn =>
-    btn.addEventListener("click", () => removeFile(parseInt(btn.dataset.idx, 10)))
-  );
-
-  if (state.files.length === 0) {
-    dz.querySelector(".big").textContent = "Drop your PNG here, or tap to browse";
-    dz.querySelector(".small").textContent = "PNG with a transparent background · 22″ wide · 300 DPI";
-    dz.dataset.atMax = "";
-    dz.classList.remove("has-file");
-  } else if (atMax) {
-    dz.querySelector(".big").textContent = `Maximum ${state.cfg.maxGangsheetsPerOrder} sheet${state.cfg.maxGangsheetsPerOrder > 1 ? "s" : ""} per order`;
-    dz.querySelector(".small").textContent = "Remove a sheet below to swap it out";
-    dz.dataset.atMax = "1";
-    dz.classList.add("has-file");
-  } else {
-    dz.querySelector(".big").textContent = "Add another sheet";
-    dz.querySelector(".small").textContent = `${state.files.length} of ${state.cfg.maxGangsheetsPerOrder} added · drop or tap to browse`;
-    dz.dataset.atMax = "";
-    dz.classList.remove("has-file");
-  }
-
-  refreshPay();
-}
-
-function removeFile(idx) {
-  const f = state.files[idx];
-  if (!f) return;
-  if (f.xhr) f.xhr.abort();
-  state.files.splice(idx, 1);
-  renderFileList();
-}
-
-// ---- Upload ----
-function handleFiles(fileList) {
-  const all = Array.from(fileList);
-  const pngs = all.filter(f => f.type === "image/png");
-  if (pngs.length < all.length)
-    setHint(`${all.length - pngs.length} file${all.length - pngs.length > 1 ? "s" : ""} skipped — only PNG files are accepted.`, true);
-
-  const available = state.cfg.maxGangsheetsPerOrder - state.files.length;
-  if (pngs.length > available)
-    setHint(`Maximum ${state.cfg.maxGangsheetsPerOrder} sheets per order — ${pngs.length - available} skipped.`, true);
-
-  for (const file of pngs.slice(0, available)) {
-    if (file.size > state.cfg.maxUploadBytes) {
-      setHint(`${file.name} is too large. Max ${Math.round(state.cfg.maxUploadBytes / 1048576)} MB.`, true);
-      continue;
-    }
-    uploadFile(file);
-  }
-}
-
-async function uploadFile(file) {
-  state.files.push({ name: file.name, size: file.size, key: null, status: "uploading", progress: 0, xhr: null, error: null });
-  const idx = state.files.length - 1;
-  renderFileList();
-
-  let url, key;
+async function pay() {
+  if (!canPay()) return;
+  state.paying = true; refreshPay(); setHint("");
+  $("pay").textContent = "Processing…";
   try {
-    const r = await fetch("/api/upload-url", {
+    const tok = await state.card.tokenize();
+    if (tok.status !== "OK") throw new Error("Please check your card details.");
+    const r = await fetch("/api/create-payment", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ filename: file.name, contentType: file.type, size: file.size, sizeKey: $("size").value }),
+      body: JSON.stringify({
+        token: tok.token,
+        cartItems: state.cart.map((i) => ({
+          variationId: i.variationId,
+          qty: i.qty,
+          description: i.description,
+          objectKey: i.objectKey,
+        })),
+        customer: { name: $("name").value.trim(), email: $("email").value.trim() },
+        turnstileToken: state.turnstileToken,
+      }),
     });
     const j = await r.json();
-    if (!r.ok) throw new Error(j.error || "Couldn't start the upload.");
-    url = j.url; key = j.key;
+    if (!r.ok || !j.ok) throw new Error(j.error || "Payment was declined.");
+    $("order").classList.add("hidden");
+    if (j.receiptUrl) $("receipt").innerHTML = '<a href="' + j.receiptUrl + '" target="_blank" rel="noopener">View your receipt</a>';
+    $("done").classList.remove("hidden");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   } catch (e) {
-    state.files[idx].status = "error";
-    state.files[idx].error = e.message;
-    renderFileList();
-    return;
+    state.paying = false;
+    state.turnstileToken = null;
+    if (window.turnstile) window.turnstile.reset("#turnstile-container");
+    refreshPay();
+    setHint(e.message, true);
   }
-
-  await new Promise((resolve) => {
-    const xhr = new XMLHttpRequest();
-    state.files[idx].xhr = xhr;
-    xhr.open("PUT", url);
-    xhr.upload.onprogress = (ev) => {
-      if (ev.lengthComputable) { state.files[idx].progress = Math.round((ev.loaded / ev.total) * 100); renderFileList(); }
-    };
-    xhr.onload = () => {
-      state.files[idx].xhr = null;
-      if (xhr.status >= 200 && xhr.status < 300) {
-        state.files[idx].status = "done"; state.files[idx].key = key;
-      } else {
-        state.files[idx].status = "error"; state.files[idx].error = `Upload failed (${xhr.status}) — remove and try again.`;
-      }
-      renderFileList(); resolve();
-    };
-    xhr.onerror = () => {
-      state.files[idx].xhr = null;
-      state.files[idx].status = "error"; state.files[idx].error = "Upload failed — check your connection.";
-      renderFileList(); resolve();
-    };
-    xhr.send(file);
-  });
 }
 
 // ---- Square ----
@@ -408,40 +481,6 @@ async function initSquare() {
   await card.attach("#card-container");
   state.card = card; state.cardReady = true; refreshPay();
   card.addEventListener("focusClassAdded", refreshPay);
-}
-
-async function pay() {
-  if (!canPay()) return;
-  state.paying = true; refreshPay(); setHint("");
-  $("pay").textContent = "Processing…";
-  try {
-    const tok = await state.card.tokenize();
-    if (tok.status !== "OK") throw new Error("Please check your card details.");
-    const r = await fetch("/api/create-payment", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        token: tok.token,
-        sizeKey: $("size").value,
-        quantity: qty(),
-        customer: { name: $("name").value.trim(), email: $("email").value.trim() },
-        objectKeys: state.files.filter(f => f.status === "done").map(f => f.key),
-        turnstileToken: state.turnstileToken,
-      }),
-    });
-    const j = await r.json();
-    if (!r.ok || !j.ok) throw new Error(j.error || "Payment was declined.");
-    $("order").classList.add("hidden");
-    if (j.receiptUrl) $("receipt").innerHTML = '<a href="' + j.receiptUrl + '" target="_blank" rel="noopener">View your receipt</a>';
-    $("done").classList.remove("hidden");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  } catch (e) {
-    state.paying = false;
-    state.turnstileToken = null;
-    if (window.turnstile) window.turnstile.reset("#turnstile-container");
-    refreshPay();
-    setHint(e.message, true);
-  }
 }
 
 // ---- Turnstile ----
@@ -467,30 +506,38 @@ async function initTurnstile() {
 async function init() {
   state.cfg = await (await fetch("/api/config")).json();
   $("size").innerHTML = state.cfg.prices
-    .map((p) => `<option value="${p.key}">${p.label} — ${money(p.priceCents)}</option>`)
+    .map((p) => `<option value="${p.variationId}">${p.label} — ${money(p.priceCents)}</option>`)
     .join("");
-  refreshTotal(); refreshPay();
+  refreshPreview(); refreshAddBtn(); refreshPay();
 
-  $("size").addEventListener("change", () => { refreshTotal(); refreshPay(); });
-  $("qty").addEventListener("input", () => { refreshTotal(); refreshPay(); });
+  $("size").addEventListener("change", () => { refreshPreview(); refreshAddBtn(); });
+  $("qty").addEventListener("input", refreshAddBtn);
   $("name").addEventListener("input", refreshPay);
   $("email").addEventListener("input", refreshPay);
 
   const dz = $("dropzone"), fi = $("file");
-  dz.addEventListener("click", () => { if (!dz.dataset.atMax) fi.click(); });
-  dz.addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === " ") && !dz.dataset.atMax) { e.preventDefault(); fi.click(); } });
-  dz.addEventListener("dragover", (e) => { e.preventDefault(); if (!dz.dataset.atMax) dz.classList.add("drag"); });
+  dz.addEventListener("click", () => { if (!state.currentFile || state.uploading) fi.click(); });
+  dz.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fi.click(); } });
+  dz.addEventListener("dragover", (e) => { e.preventDefault(); dz.classList.add("drag"); });
   dz.addEventListener("dragleave", () => dz.classList.remove("drag"));
-  dz.addEventListener("drop", (e) => { e.preventDefault(); dz.classList.remove("drag"); if (!dz.dataset.atMax) handleFiles(e.dataTransfer.files); });
-  fi.addEventListener("change", () => { handleFiles(fi.files); fi.value = ""; });
+  dz.addEventListener("drop", (e) => { e.preventDefault(); dz.classList.remove("drag"); handleFile(e.dataTransfer.files[0]); });
+  fi.addEventListener("change", () => { handleFile(fi.files[0]); fi.value = ""; });
+  $("replace").addEventListener("click", () => {
+    state.currentFile = null; $("file").value = "";
+    $("filemeta").classList.remove("show");
+    $("dropzone").classList.remove("has-file");
+    $("dropzone").querySelector(".big").textContent = "Drop your PNG here, or tap to browse";
+    refreshAddBtn();
+  });
 
+  $("add-btn").addEventListener("click", addToCart);
   $("pay").addEventListener("click", pay);
 
   try { await initSquare(); }
   catch { setHint("Couldn't load the payment form. Please refresh.", true); }
 
   try { await initTurnstile(); }
-  catch { /* non-fatal in dev; in production a missing widget means the server rejects the payment */ }
+  catch { /* non-fatal */ }
 }
 
 init();

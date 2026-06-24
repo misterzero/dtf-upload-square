@@ -3,7 +3,7 @@
 // Returns: { url, key }  — a presigned R2 PUT URL the browser uploads to directly.
 
 import { presign } from "../../lib/sigv4.js";
-import { MAX_UPLOAD_BYTES, getPrice } from "../../lib/prices.js";
+import { MAX_UPLOAD_BYTES } from "../../lib/prices.js";
 
 function bad(message, status = 400) {
   return Response.json({ error: message }, { status });
@@ -25,9 +25,8 @@ export async function onRequestPost({ request, env }) {
     return bad("Invalid request.");
   }
 
-  const { filename, contentType, size, sizeKey } = body || {};
+  const { filename, contentType, size } = body || {};
 
-  if (sizeKey && !getPrice(sizeKey)) return bad("Unknown sheet size.");
   if (typeof contentType === "string" && contentType && contentType !== "image/png") {
     return bad("Only PNG files are accepted.");
   }

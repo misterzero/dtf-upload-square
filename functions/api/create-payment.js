@@ -1,7 +1,7 @@
 // POST /api/create-payment
-// Body: { token, sizeKey, quantity, customer:{name,email}, objectKeys:string[], turnstileToken }
-// 1. Verifies all uploads landed in R2
-// 2. Creates a Square Order with proper line items
+// Body: { token, cartItems:[{variationId,qty,description,objectKey}], customer:{name,email}, turnstileToken }
+// 1. Verifies every uploaded file landed in R2
+// 2. Creates a Square Order with one line item per cart entry (price from server, never client)
 // 3. Charges the card against that order
 // 4. Sends notification emails via Resend with presigned download links (fire-and-forget)
 
@@ -19,7 +19,7 @@ function fmt(cents) {
   return "$" + (cents / 100).toFixed(2);
 }
 
-async function downloadUrl(env, key) {
+async function makeDownloadUrl(env, key) {
   return presign({
     method: "GET",
     host: `${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
@@ -27,11 +27,11 @@ async function downloadUrl(env, key) {
     key,
     accessKeyId: env.R2_ACCESS_KEY_ID,
     secretAccessKey: env.R2_SECRET_ACCESS_KEY,
-    expires: 7 * 24 * 60 * 60, // 7 days
+    expires: 7 * 24 * 60 * 60,
   });
 }
 
-async function sendEmails(env, { price, qty, amount, customer, keys, downloadLinks, receiptUrl, orderId }) {
+async function sendEmails(env, { enrichedItems, amount, customer, receiptUrl, orderId }) {
   if (!env.RESEND_API_KEY) return;
 
   const from = env.FROM_EMAIL || "noreply@rioscreations.com";
@@ -39,48 +39,58 @@ async function sendEmails(env, { price, qty, amount, customer, keys, downloadLin
   const emails = [];
 
   if (env.OWNER_EMAIL) {
-    const fileLines = downloadLinks
-      .map(({ key, url }) => `  ${key.split("/").pop()}\n  ${url}`)
-      .join("\n\n");
+    const itemLines = enrichedItems.map((item) => [
+      `  ${item.label} ×${item.qty} — ${fmt(item.priceCents * item.qty)}`,
+      item.description ? `  "${item.description}"` : null,
+      `  File: ${item.objectKey.split("/").pop()}`,
+      `  ↓ ${item.downloadUrl}`,
+    ].filter(Boolean).join("\n")).join("\n\n");
 
     emails.push({
       from,
       to: env.OWNER_EMAIL,
-      subject: `New DTF order: ${price.label} ×${qty} — ${fmt(amount)}`,
+      subject: `New DTF order — ${fmt(amount)} (${enrichedItems.length} transfer${enrichedItems.length > 1 ? "s" : ""})`,
       text: [
-        `New order received.`,
-        ``,
-        `Size:     ${price.label}`,
-        `Qty:      ${qty}`,
+        "New order received.",
+        "",
+        itemLines,
+        "",
         `Total:    ${fmt(amount)}`,
         `Customer: ${customer?.name || "—"}`,
         `Email:    ${customer?.email || "—"}`,
         `Order ID: ${orderId || "—"}`,
         receiptUrl ? `Receipt:  ${receiptUrl}` : null,
-        ``,
-        `File${keys.length > 1 ? "s" : ""} (links expire in 7 days):`,
-        fileLines,
+        "",
+        "Download links expire in 7 days.",
       ].filter(Boolean).join("\n"),
     });
   }
 
   if (customer?.email) {
+    const itemLines = enrichedItems.map((item) => [
+      `  ${item.label} ×${item.qty} — ${fmt(item.priceCents * item.qty)}`,
+      item.description ? `  ${item.description}` : null,
+    ].filter(Boolean).join("\n")).join("\n\n");
+
     emails.push({
       from,
       ...(replyTo ? { reply_to: replyTo } : {}),
       to: customer.email,
-      subject: `Your DTF order is confirmed — ${price.label} ×${qty}`,
+      subject: `Your DTF order is confirmed — ${fmt(amount)}`,
       text: [
         `Hi ${customer.name || "there"},`,
-        ``,
-        `We've got your order and payment for ${qty}× ${price.label} DTF gang sheet${qty > 1 ? "s" : ""}.`,
+        "",
+        "Your order is confirmed:",
+        "",
+        itemLines,
+        "",
         `Total charged: ${fmt(amount)}`,
-        ``,
-        `We'll print it and let you know when it's ready.`,
-        ``,
+        "",
+        "We'll print these and let you know when they're ready.",
+        "",
         receiptUrl ? `View your receipt: ${receiptUrl}` : null,
-        ``,
-        `— Rio's Custom Creations`,
+        "",
+        "— Rio's Custom Creations",
       ].filter(Boolean).join("\n"),
     });
   }
@@ -107,12 +117,10 @@ export async function onRequestPost({ request, env, waitUntil }) {
     return bad("Invalid request.");
   }
 
-  const { token, sizeKey, quantity, customer, objectKeys, turnstileToken } = body || {};
-  const qty = Math.max(1, Math.min(99, parseInt(quantity, 10) || 1));
-  const keys = Array.isArray(objectKeys) && objectKeys.length > 0 ? objectKeys : [];
+  const { token, cartItems, customer, turnstileToken } = body || {};
 
   if (!token) return bad("Missing payment token.");
-  if (!keys.length) return bad("Missing uploaded file reference.");
+  if (!Array.isArray(cartItems) || cartItems.length === 0) return bad("Cart is empty.");
 
   if (env.TURNSTILE_SECRET_KEY) {
     const tv = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
@@ -124,18 +132,30 @@ export async function onRequestPost({ request, env, waitUntil }) {
     if (!td.success) return bad("Security check failed. Please refresh and try again.", 403);
   }
 
-  const price = getPrice(sizeKey);
-  if (!price) return bad("Unknown sheet size.");
+  // Validate every cart item against the server-side price table.
+  const enrichedItems = [];
+  for (const item of cartItems) {
+    const price = getPrice(item.variationId);
+    if (!price) return bad("Unknown sheet size in cart.");
+    if (!item.objectKey) return bad("Missing file for one of your transfers.");
+    const qty = Math.max(1, Math.min(99, parseInt(item.qty, 10) || 1));
+    enrichedItems.push({
+      ...price,
+      qty,
+      description: item.description?.trim() || null,
+      objectKey: item.objectKey,
+    });
+  }
 
   // Confirm every file actually made it to R2 before taking money.
   if (env.BUCKET) {
-    for (const key of keys) {
-      const obj = await env.BUCKET.head(key);
-      if (!obj) return bad(`We couldn't find one of your uploaded files. Please re-upload and try again.`);
+    for (const item of enrichedItems) {
+      const obj = await env.BUCKET.head(item.objectKey);
+      if (!obj) return bad("We couldn't find one of your uploaded files. Please re-upload and try again.");
     }
   }
 
-  const amount = price.priceCents * qty;
+  const amount = enrichedItems.reduce((sum, i) => sum + i.priceCents * i.qty, 0);
   const base =
     (env.SQUARE_ENV || "sandbox") === "production"
       ? "https://connect.squareup.com"
@@ -147,7 +167,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
     "Square-Version": SQUARE_VERSION,
   };
 
-  // Step 1: Create the order so it appears as a proper line-item sale in Square.
+  // Step 1: Create the order with one line item per transfer.
   const orderResp = await fetch(`${base}/v2/orders`, {
     method: "POST",
     headers,
@@ -155,14 +175,13 @@ export async function onRequestPost({ request, env, waitUntil }) {
       idempotency_key: crypto.randomUUID(),
       order: {
         location_id: env.SQUARE_LOCATION_ID,
-        line_items: [
-          {
-            name: `DTF Gang Sheet ${price.label}`,
-            quantity: String(qty),
-            base_price_money: { amount: price.priceCents, currency: CURRENCY },
-            note: `File${keys.length > 1 ? "s" : ""}: ${keys.join(", ")}`.slice(0, 500),
-          },
-        ],
+        line_items: enrichedItems.map((item) => ({
+          name: item.label,
+          quantity: String(item.qty),
+          base_price_money: { amount: item.priceCents, currency: CURRENCY },
+          note: [item.description, `File: ${item.objectKey}`]
+            .filter(Boolean).join(" | ").slice(0, 500),
+        })),
       },
     }),
   });
@@ -174,7 +193,7 @@ export async function onRequestPost({ request, env, waitUntil }) {
   }
   const orderId = orderData.order?.id;
 
-  // Step 2: Charge the card, linking it to the order we just created.
+  // Step 2: Charge the card, linking it to the order.
   const payResp = await fetch(`${base}/v2/payments`, {
     method: "POST",
     headers,
@@ -197,11 +216,17 @@ export async function onRequestPost({ request, env, waitUntil }) {
   const receiptUrl = payData.payment?.receipt_url || null;
 
   // Step 3: Generate presigned 7-day download links for Mario's email.
-  const downloadLinks = await Promise.all(
-    keys.map(async (key) => ({ key, url: await downloadUrl(env, key) }))
+  const enrichedWithLinks = await Promise.all(
+    enrichedItems.map(async (item) => ({
+      ...item,
+      downloadUrl: await makeDownloadUrl(env, item.objectKey),
+    }))
   );
+
   // Step 4: Email notifications — waitUntil keeps the function alive after the response is sent.
-  waitUntil(sendEmails(env, { price, qty, amount, customer, keys, downloadLinks, receiptUrl, orderId }).catch(() => {}));
+  waitUntil(
+    sendEmails(env, { enrichedItems: enrichedWithLinks, amount, customer, receiptUrl, orderId }).catch(() => {})
+  );
 
   return Response.json({
     ok: true,

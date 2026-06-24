@@ -1,9 +1,10 @@
 # Rio's Custom Creations — DTF gang sheet upload & pay
 
 A single-page, zero-build upload-and-pay flow for selling DTF transfer prints.
-Customers pick a sheet size, upload their finished PNG **straight to Cloudflare R2**,
-and pay through **Square** — and the Pay button stays locked until the file has
-finished uploading, so you never get an order without artwork.
+Customers configure one or more transfers (size, quantity, optional description),
+upload each finished PNG **straight to Cloudflare R2**, add it to a cart, and pay
+once for the whole order through **Square** — the Pay button stays locked until
+the cart has at least one item, so you never get an order without artwork.
 
 ```
 index.html                  the customer page (static)
@@ -69,6 +70,7 @@ files in `functions/` automatically.
    | `SQUARE_LOCATION_ID` | Square location ID |
    | `SQUARE_ACCESS_TOKEN` | Square access token |
    | `SQUARE_ENV` | `sandbox` or `production` |
+   | `SQUARE_CATALOG_CATEGORY_ID` | ID of the Square catalog category containing DTF gang sheet items |
    | `RESEND_API_KEY` | Resend API key (from resend.com) |
    | `FROM_EMAIL` | Sender address (must be verified in Resend) |
    | `OWNER_EMAIL` | Mario's email — gets a new-order alert on every sale |
@@ -95,12 +97,15 @@ customer can't change the amount from the browser. Edit `label` / `priceCents` /
 
 ## Where the files go
 
-Uploads land in R2 under `gangsheets/YYYY/MM/<uuid>__<filename>.png`. The exact
-key is written into the Square payment **note**, so each payment in your Square
-dashboard tells you which file to print. To pull files, use the R2 dashboard, or
-`rclone`, or the Wrangler CLI (`npx wrangler r2 object get ...`). R2's free tier
-covers this comfortably and has **no egress fees**, so downloading originals is free.
-Delete files after printing to keep storage near zero.
+Uploads land in R2 under `gangsheets/YYYY/MM/<uuid>__<filename>.png`. Each cart
+item becomes its own Square order line item, with the file key (and optional
+description) written into that line item's **note**, so each line in your Square
+dashboard tells you which file to print. Mario's owner-notification email also
+includes a presigned download link per file (expires after 7 days). To pull files
+directly, use the R2 dashboard, `rclone`, or the Wrangler CLI
+(`npx wrangler r2 object get ...`). R2's free tier covers this comfortably and has
+**no egress fees**, so downloading originals is free. Delete files after printing
+to keep storage near zero.
 
 ## Local development
 
@@ -125,5 +130,7 @@ the pre-charge file-check is skipped locally. Everything else behaves the same a
 - Turnstile keys come from dash.cloudflare.com → Turnstile → Add widget. Use the test keys in
   `.dev.vars.example` locally (always pass, no account needed). If `TURNSTILE_SECRET_KEY` is absent,
   the server-side check is skipped — set both keys together.
-- Each sale creates a Square Order with proper line items before charging, so Mario's dashboard
-  shows size, quantity, and the R2 file key per transaction.
+- Each sale creates a Square Order with one line item per cart transfer before charging, so
+  Mario's dashboard shows size, quantity, description, and the R2 file key per transaction.
+- `SQUARE_CATALOG_CATEGORY_ID` is reserved for a future switch to Square Catalog-driven pricing;
+  it isn't read by any code yet — `lib/prices.js` is still the static source of truth.

@@ -12,9 +12,7 @@ SQUARE_APP_ID=sandbox-sq0idb-...
 SQUARE_LOCATION_ID=your-sandbox-location-id
 SQUARE_ACCESS_TOKEN=EAAAl...sandbox-token...
 SQUARE_ENV=sandbox
-
-# Max gang sheets a customer can include in a single order (default: 5)
-MAX_GANGSHEETS_PER_ORDER=3
+SQUARE_CATALOG_CATEGORY_ID=your-dtf-category-id
 
 # Cloudflare Turnstile — use these test keys locally (always pass, no account needed).
 # Replace with real keys from dash.cloudflare.com -> Turnstile before deploying.
